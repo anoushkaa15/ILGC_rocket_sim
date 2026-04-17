@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Rocket Launch & Orbit Simulation</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            background: #071421;
+            color: white;
+            text-align: center;
+        }
+
+        canvas {
+            background: black;
+            border: 2px solid white;
+        }
+
+        .controls {
+            margin: 10px;
+        }
+
+        label {
+            display: block;
+            margin: 8px;
+        }
+
+        .value {
+            color: #4fd3ff;
+            margin-left: 10px;
+            font-weight: bold;
+        }
+
+        /* scientific info box */
+
+        .infoBox {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 250px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid #4fd3ff;
+            padding: 12px;
+            font-size: 13px;
+            text-align: left;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>🚀 Rocket Launch & Orbit Simulation</h2>
+
+    <div class="infoBox">
+
+        <b>Scientific Note</b><br><br>
+
+        This simulation uses a simplified physics model with constant gravity, simplified atmospheric drag, and
+        projectile motion to demonstrate how thrust, mass, and launch angle influence rocket trajectories.<br><br>
+
+        Distances, forces, and time in this simulation are scaled for visualization purposes. The values shown do not
+        correspond directly to real-world rocket parameters.<br><br>
+
+        The model approximates projectile motion rather than full orbital mechanics. Effects such as variable gravity
+        with altitude, realistic thrust curves, atmospheric density changes, and planetary rotation are not
+        included.<br><br>
+
+        This simulation is intended for conceptual understanding of basic rocket motion and trajectory behavior in a
+        school-level educational setting.
+
+
+    </div>
+
+    <div class="controls">
+
+        <label>
+            Thrust (simulation units)
+            <input type="range" id="thrust" min="1" max="300" value="180" oninput="updateValues()">
+            <span class="value" id="thrustVal">180 N</span>
+        </label>
+
+        <label>
+            Rocket Mass
+            <input type="range" id="mass" min="20" max="100" value="50" oninput="updateValues()">
+            <span class="value" id="massVal">50 kg</span>
+        </label>
+
+        <label>
+            Launch Angle
+            <input type="range" id="angle" min="20" max="85" value="65" oninput="updateValues()">
+            <span class="value" id="angleVal">65°</span>
+        </label>
+
+        <button onclick="launch()">Launch Rocket</button>
+
+    </div>
+
+    <p>
+        Altitude: <span id="alt">0</span> km |
+        Velocity: <span id="vel">0</span> m/s |
+        Fuel: <span id="fuel">100</span> %
+    </p>
+
+    <canvas id="sim" width="900" height="520"></canvas>
+
+    <script>
+
+        const canvas = document.getElementById("sim")
+        const ctx = canvas.getContext("2d")
+
+        let rocket = null
+        let path = []
+
+        const earthRadius = 300
+        const earthX = 450
+        const earthY = 620
+
+        const gravity = 0.12
+        const drag = 0.0008
+
+        let stars = []
+
+        for (let i = 0; i < 80; i++) {
+            stars.push({
+                x: Math.random() * 900,
+                y: Math.random() * 520,
+                r: Math.random() * 2
+            })
+        }
+
+        function updateValues() {
+
+            document.getElementById("thrustVal").innerText =
+                document.getElementById("thrust").value + " N"
+
+            document.getElementById("massVal").innerText =
+                document.getElementById("mass").value + " kg"
+
+            document.getElementById("angleVal").innerText =
+                document.getElementById("angle").value + "°"
+
+        }
+
+        updateValues()
+
+        function launch() {
+
+            let thrust = parseFloat(document.getElementById("thrust").value)
+            let mass = parseFloat(document.getElementById("mass").value)
+            let angle = parseFloat(document.getElementById("angle").value) * Math.PI / 180
+
+            if (thrust <= mass * gravity) {
+                alert("Rocket cannot lift off: Thrust must be greater than weight (mg).")
+                return
+            }
+
+            rocket = {
+                x: earthX,
+                y: earthY - earthRadius,
+                vx: Math.cos(angle) * (thrust / mass),
+                vy: -Math.sin(angle) * (thrust / mass),
+                fuel: 100,
+                mass: mass
+            }
+
+            path = []
+
+        }
+
+        function update() {
+
+            if (!rocket) return
+
+            if (rocket.fuel > 0) {
+                rocket.vy -= 0.05
+                rocket.fuel -= 0.25
+            }
+
+            rocket.vy += gravity
+
+            rocket.vx -= rocket.vx * drag
+            rocket.vy -= rocket.vy * drag
+
+            rocket.x += rocket.vx
+            rocket.y += rocket.vy
+
+            path.push({ x: rocket.x, y: rocket.y })
+
+            let altitude = Math.max(0, (earthY - earthRadius) - rocket.y)
+            let velocity = Math.sqrt(rocket.vx * rocket.vx + rocket.vy * rocket.vy)
+
+            document.getElementById("alt").innerText = altitude.toFixed(1)
+            document.getElementById("vel").innerText = velocity.toFixed(2)
+            document.getElementById("fuel").innerText = rocket.fuel.toFixed(0)
+
+            if (rocket.y > earthY - earthRadius + 5) {
+                rocket = null
+            }
+
+        }
+
+        function drawStars() {
+
+            ctx.fillStyle = "white"
+
+            for (let s of stars) {
+                ctx.beginPath()
+                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2)
+                ctx.fill()
+            }
+
+        }
+
+        function drawEarth() {
+
+            let grad = ctx.createLinearGradient(0, earthY - earthRadius, 0, earthY)
+
+            grad.addColorStop(0, "#2b65ff")
+            grad.addColorStop(1, "#0a1eff")
+
+            ctx.fillStyle = grad
+
+            ctx.beginPath()
+            ctx.arc(earthX, earthY, earthRadius, 0, Math.PI * 2)
+            ctx.fill()
+
+        }
+
+        function drawPath() {
+
+            ctx.strokeStyle = "yellow"
+            ctx.lineWidth = 2
+
+            ctx.beginPath()
+
+            for (let i = 0; i < path.length; i++) {
+                let p = path[i]
+                if (i === 0) ctx.moveTo(p.x, p.y)
+                else ctx.lineTo(p.x, p.y)
+            }
+
+            ctx.stroke()
+
+        }
+
+        function drawRocket() {
+
+            if (!rocket) return
+
+            ctx.fillStyle = "white"
+            ctx.fillRect(rocket.x - 6, rocket.y - 25, 12, 40)
+
+            ctx.fillStyle = "red"
+
+            ctx.beginPath()
+            ctx.moveTo(rocket.x - 6, rocket.y - 25)
+            ctx.lineTo(rocket.x + 6, rocket.y - 25)
+            ctx.lineTo(rocket.x, rocket.y - 38)
+            ctx.fill()
+
+            if (rocket.fuel > 0) {
+
+                ctx.fillStyle = "orange"
+
+                ctx.beginPath()
+                ctx.moveTo(rocket.x - 4, rocket.y + 15)
+                ctx.lineTo(rocket.x + 4, rocket.y + 15)
+                ctx.lineTo(rocket.x, rocket.y + 30 + Math.random() * 10)
+                ctx.fill()
+
+            }
+
+        }
+
+        function draw() {
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+            drawStars()
+            drawEarth()
+            drawPath()
+            drawRocket()
+
+        }
+
+        function loop() {
+
+            update()
+            draw()
+
+            requestAnimationFrame(loop)
+
+        }
+
+        loop()
+
+    </script>
+
+</body>
+
+</html>
